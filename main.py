@@ -11,10 +11,10 @@ app = FastAPI(debug=True)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # En producción cambiar a dominios específicos
+    allow_origins=["*"],  # En producción usa dominios específicos
     allow_credentials=True,
     allow_methods=["*"],
-    allow_headers=["*"],
+    allow_headers=["*"],  # Permite el header Authorization
 )
 
 app.include_router(user_router)

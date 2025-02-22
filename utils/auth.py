@@ -10,9 +10,7 @@ FERNET_KEY = os.getenv("FERNET_KEY", "FF7J4NiWS7o1HfQMOcD4Hjz_6PgEvCODGCY0NPPoM_
 f = Fernet(FERNET_KEY.encode())
 
 
-async def get_current_user(
-        credentials: HTTPAuthorizationCredentials = Depends(security)
-):
+async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security)):
     try:
         token = credentials.credentials
         decrypted = f.decrypt(token.encode()).decode()

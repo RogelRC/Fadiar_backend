@@ -1,23 +1,29 @@
+import os
 import random
-from fastapi import APIRouter, HTTPException, status, Depends
+from datetime import datetime, timedelta
+
+from cryptography.fernet import Fernet
+from fastapi import APIRouter
+from fastapi import Depends, HTTPException, status
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+
 from config.db import conn
 from models.user import users
+from schemas.token import Token
 from schemas.user import (
     UserCreate,
-    UserResponse,
     UserLogin,
     VerifyRequest,
     ResendCodeRequest,
     UpdatePasswordRequest
 )
-from schemas.token import Token
-from cryptography.fernet import Fernet
+from schemas.user import UserResponse  # Y este esquema
+from utils.auth import get_current_user  # Asegúrate de tener esta función
 from utils.send_verification_mail import send_verification_email
-from datetime import datetime, timedelta
-from utils.auth import get_current_user
-import os
 
 user_router = APIRouter()
+security = HTTPBearer()
+
 
 # Configuración de Fernet
 FERNET_KEY = os.getenv("FERNET_KEY", "FF7J4NiWS7o1HfQMOcD4Hjz_6PgEvCODGCY0NPPoM_E=")
@@ -175,7 +181,7 @@ async def login(login_data: UserLogin):
             detail="Cuenta no verificada"
         )
 
-    token_data = f"{user.email}:{datetime.now()}"
+    token_data = f"{user.email}:{datetime.now().isoformat()}"
     auth_token = f.encrypt(token_data.encode()).decode()
 
     return {"token": auth_token, "token_type": "bearer"}
@@ -209,3 +215,26 @@ async def update_password(
     )
 
     return {"message": "Contraseña actualizada exitosamente"}
+
+
+@user_router.get("/me", response_model=UserResponse)
+async def get_current_user_endpoint(
+        credentials: HTTPAuthorizationCredentials = Depends(security)
+):
+    try:
+        token = credentials.credentials
+        print(f"Token recibido: {token}")  # Log para ver el token
+
+        decrypted = f.decrypt(token.encode()).decode()
+        print(f"Token descifrado: {decrypted}")  # Log del token decodificado
+
+        email, _ = decrypted.split(":", 1)
+        user = conn.execute(users.select().where(users.c.email == email)).first()
+
+        if not user:
+            raise HTTPException(status_code=404, detail="Usuario no encontrado")
+
+        return user
+    except Exception as e:
+        print(f"Error en /me: {str(e)}")  # Log del error
+        raise HTTPException(status_code=401, detail="Token inválido")
